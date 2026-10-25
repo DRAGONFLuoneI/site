@@ -1,0 +1,125 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Открытка с подвохом</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@600;800;900&family=Onest:wght@400;500;700&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+<script src="app.js"></script>
+
+</head>
+<body>
+<div class="wrap">
+  <div class="top">
+    <span>Открытка / версия с подвохом</span>
+    <button class="theme" id="theme" type="button" aria-label="Сменить тему: чёрная или белая">◐ Тема</button>
+  </div>
+
+  <div class="ticker" aria-hidden="true">
+    <div class="ticker-track" data-track="Читай внимательно • Мозг врёт, сердце тоже • Не гугли • Ты уже улыбаешься • Это было замечено • Руки на экран •"></div>
+  </div>
+
+  <header class="hero">
+    <p class="eyebrow">Для одной конкретной девушки. Остальным вход воспрещён.</p>
+    <div class="hero-grid">
+      <div class="hero-l">
+        <h1>Эй,<br><span class="out">ты.</span></h1>
+        <p class="lead">Это не открытка, это допрос с пристрастием. Шесть комнат, из которых выйти можно только через меня. Нужны глаза, руки, нервы, память, голова и наглость. <b>Будет трудно.</b> Я так люблю. Победишь, получишь вердикт. Проиграешь, получишь штраф. Мне подходит и то и другое, и второе даже больше.</p>
+      </div>
+    </div>
+    <div class="hero-row">
+      <div class="namebox">
+        <label for="name">Напиши своё имя. Я хочу произнести его в конце. Шёпотом.</label>
+        <input id="name" type="text" maxlength="24" placeholder="Имя" autocomplete="off">
+      </div>
+      <div class="row"><a class="btn solid" id="go" href="l1.html">Войти в первую комнату →</a></div>
+    </div>
+    <p class="desc" id="warn" hidden>Браузер не даёт сохранять прогресс. Открой страницу в обычном окне, не в приватном, иначе комнаты не запомнят, что ты их прошла.</p>
+  </header>
+
+  <div class="big-tick" aria-hidden="true">
+    <div class="big-row" data-track="Ты плохо влияешь на мой пульс •"></div>
+    <div class="big-row fill rev" data-track="Выйти можно только через меня •"></div>
+  </div>
+
+  <section id="rooms" style="display:flex;flex-direction:column;gap:26px">
+    <div class="map-head">
+      <h2>Шесть комнат</h2>
+      <span class="hearts" id="hearts" aria-live="polite">□□□□□□</span>
+    </div>
+    <div class="map" id="map"></div>
+  </section>
+
+  <div class="foot">
+    <button class="linkbtn" id="cheat" type="button">Я хочу сжульничать и открыть всё</button>
+    <button class="linkbtn" id="reset" type="button">Начать с нуля</button>
+    <span id="foot-note"></span>
+  </div>
+</div>
+
+<script>
+(function () {
+  var A = App, $ = A.$;
+
+  /* имя */
+  var nameEl = $('#name');
+  nameEl.value = A.name();
+  nameEl.addEventListener('input', function () { A.setName(nameEl.value.trim()); });
+
+  if (!A.storageOk()) $('#warn').hidden = false;
+
+  /* карта */
+  function render() {
+    var n = A.doneCount(), total = A.LV.length;
+    var h = '';
+    for (var i = 0; i < total; i++) h += i < n ? '■' : '□';
+    $('#hearts').textContent = h;
+    var map = $('#map');
+    map.innerHTML = '';
+    function card(num, title, kind, status, href, cls) {
+      var el = document.createElement(href ? 'a' : 'div');
+      el.className = 'lvl ' + cls;
+      if (href) el.href = href;
+      var a = document.createElement('span'); a.className = 'n'; a.textContent = num;
+      var b = document.createElement('div');
+      var t = document.createElement('div'); t.className = 't'; t.textContent = title;
+      var k = document.createElement('div'); k.className = 'k'; k.textContent = kind;
+      b.appendChild(t); b.appendChild(k);
+      var s = document.createElement('span'); s.className = 's'; s.textContent = status;
+      el.appendChild(a); el.appendChild(b); el.appendChild(s);
+      map.appendChild(el);
+    }
+    var firstOpen = -1;
+    A.LV.forEach(function (l, i) {
+      var done = A.done(l.id), open = A.unlocked(i);
+      if (!done && open && firstOpen < 0) firstOpen = i;
+      var status = done ? (A.stat(l.id).forfeit ? 'Штраф' : 'Пройдено') : (open ? 'Открыто' : 'Закрыто');
+      card('0' + (i + 1), l.name, l.kind, status, open ? l.href : null, done ? 'done' : (open ? '' : 'locked'));
+    });
+    var finOpen = A.allDone() || A.cheat();
+    card('★', 'Вердикт', 'финал', finOpen ? 'Открыто' : 'Закрыто', finOpen ? 'finale.html' : null, finOpen ? '' : 'locked');
+    var go = $('#go');
+    if (n === total) { go.href = 'finale.html'; go.textContent = 'К вердикту →'; }
+    else if (firstOpen >= 0) {
+      go.href = A.LV[firstOpen].href;
+      go.textContent = n === 0 ? 'Войти в первую комнату →' : 'Продолжить: комната ' + (firstOpen + 1) + ' →';
+    }
+    $('#cheat').hidden = A.cheat();
+    $('#foot-note').textContent = A.cheat() ? 'Жульничество засчитано. Мне нравится.' : '';
+  }
+  $('#cheat').addEventListener('click', function () { A.setCheat(); render(); });
+  var armed = false;
+  $('#reset').addEventListener('click', function () {
+    var b = $('#reset');
+    if (!armed) { armed = true; b.textContent = 'Точно стереть всё? Нажми ещё раз'; return; }
+    A.reset(); armed = false; b.textContent = 'Начать с нуля'; render();
+  });
+  render();
+})();
+</script>
+
+</body>
+</html>

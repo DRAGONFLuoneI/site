@@ -1,0 +1,125 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Комната 1. Чёрное и белое</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@600;800;900&family=Onest:wght@400;500;700&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+<script src="app.js"></script>
+</head>
+<body>
+<div class="wrap">
+  <div class="top">
+    <a class="back" href="index.html">← Карта</a>
+    <span class="mid">Комната 1 / 6</span>
+    <button class="theme" id="theme" type="button" aria-label="Сменить тему: чёрная или белая">◐</button>
+  </div>
+
+  <header class="room-head">
+    <p class="eyebrow">Внимание</p>
+    <h1>Чёрное<br><span class="out">и белое</span></h1>
+    <p class="lead">Это таблица Горбова — Шульте. Психологи проверяют ею внимание и выдержку. Мне нужно проверить, насколько ты умеешь не отвлекаться, пока я рядом.</p>
+  </header>
+
+  <section class="panel" id="locked" hidden>
+    <div class="tag"><span>Закрыто</span></div>
+    <p>Эта комната откроется после предыдущей.</p>
+    <div class="row"><a class="btn solid" href="index.html">На карту</a></div>
+  </section>
+
+  <section class="panel" id="game" data-n="01">
+    <div class="panel-head">
+      <div class="tag"><span>Задание</span><span>Лимит 60 секунд</span></div>
+      <p class="desc">Нажимай числа по очереди: <strong>чёрное 1, белое 12, чёрное 2, белое 11</strong> и так до конца. Чёрные идут вверх, белые вниз. Каждая ошибка добавляет <strong>3 секунды</strong> к времени. Таймер пойдёт сразу, как нажмёшь старт.</p>
+    </div>
+    <div class="row"><button class="btn solid" id="start" type="button">Старт</button></div>
+    <div id="tgtbox" hidden>
+      <div class="hud">
+        <span class="target"><i class="swatch b" id="sw"></i><span id="tgt-t"></span></span>
+        <span>Время<b id="tm">0,0</b></span>
+        <span>Ошибок<b id="er">0</b></span>
+      </div>
+    </div>
+    <div class="gs" id="gs" hidden></div>
+    <div class="result" id="res" hidden></div>
+  </section>
+
+  <div class="forfeit" id="forfeit" hidden>
+    <div class="tag"><span>Штраф вместо победы</span></div>
+    <p id="forfeit-t"></p>
+    <div class="row"><button class="btn" id="forfeit-b" type="button">Штраф выполнен</button></div>
+  </div>
+
+  <section class="panel inv after" id="after" hidden>
+    <div class="tag"><span>Комната пройдена</span></div>
+    <div class="big">Есть.</div>
+    <p id="after-msg"></p>
+    <div class="row"><a class="btn solid" id="next" href="index.html">Дальше →</a><a class="btn" href="index.html">На карту</a></div>
+  </section>
+</div>
+
+<script>
+(function () {
+  var A = App, $ = A.$, I = 0, ID = 'l1';
+  if (!A.guard(I)) return;
+  var gs = $('#gs'), sw = $('#sw'), tm = $('#tm'), er = $('#er'), start = $('#start'), res = $('#res');
+  var seq = [], idx = 0, errors = 0, t0 = 0, tmr = 0, running = false;
+  for (var k = 1; k <= 12; k++) { seq.push({ c: 'b', n: k }); seq.push({ c: 'w', n: 13 - k }); }
+  function shuffle(a) { a = a.slice(); for (var i = a.length - 1; i > 0; i--) { var j = Math.floor(Math.random() * (i + 1)); var t = a[i]; a[i] = a[j]; a[j] = t; } return a; }
+  function target() { var s = seq[idx]; sw.className = 'swatch ' + s.c; $('#tgt-t').textContent = (s.c === 'b' ? 'Чёрное ' : 'Белое ') + s.n; }
+  function elapsed() { return (performance.now() - t0) / 1000 + errors * 3; }
+  function begin() {
+    res.hidden = true;
+    idx = 0; errors = 0; er.textContent = '0';
+    gs.innerHTML = '';
+    shuffle(seq).forEach(function (it) {
+      var b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'cell ' + it.c;
+      b.textContent = it.n;
+      b.setAttribute('aria-label', (it.c === 'b' ? 'Чёрное ' : 'Белое ') + it.n);
+      b.addEventListener('click', function () {
+        if (!running) return;
+        if (it === seq[idx]) {
+          b.classList.add('done');
+          idx++;
+          if (idx >= seq.length) return end();
+          target();
+        } else {
+          errors++; er.textContent = errors;
+          b.classList.remove('bad'); void b.offsetWidth; b.classList.add('bad');
+        }
+      });
+      gs.appendChild(b);
+    });
+    gs.hidden = false; $('#tgtbox').hidden = false; start.hidden = true;
+    running = true; t0 = performance.now();
+    clearInterval(tmr);
+    tmr = setInterval(function () { tm.textContent = elapsed().toFixed(1).replace('.', ','); }, 100);
+    target();
+  }
+  function end() {
+    running = false; clearInterval(tmr);
+    var total = elapsed();
+    tm.textContent = total.toFixed(1).replace('.', ',');
+    if (total <= 60) {
+      A.finish(I, { time: Math.round(total * 10) / 10, errors: errors },
+        'Итог ' + A.fmt(total) + ', ошибок ' + errors + '. Внимание у тебя острое. Жаль, что только когда ты хочешь.');
+    } else {
+      var f = A.bump(ID, 'fails');
+      var r = res; r.innerHTML = '<b></b><p></p>';
+      r.firstChild.textContent = 'Не уложилась';
+      r.lastChild.textContent = 'Итог ' + A.fmt(total) + ', а нужно 60. Таблица ждать не будет, в отличие от меня. Ещё раз.';
+      r.hidden = false;
+      start.textContent = 'Ещё раз'; start.hidden = false;
+      if (f >= 3) A.offerForfeit(I, 'Скажи вслух, о чём ты думала, пока искала белую семёрку. Подробности приветствуются. Мне пришлёшь или нет, решай сама.');
+    }
+  }
+  start.addEventListener('click', begin);
+})();
+</script>
+</body>
+</html>

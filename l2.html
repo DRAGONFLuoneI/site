@@ -1,0 +1,193 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Комната 2. Зеркало</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@600;800;900&family=Onest:wght@400;500;700&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+<script src="app.js"></script>
+</head>
+<body>
+<div class="wrap">
+  <div class="top">
+    <a class="back" href="index.html">← Карта</a>
+    <span class="mid">Комната 2 / 6</span>
+    <button class="theme" id="theme" type="button" aria-label="Сменить тему: чёрная или белая">◐</button>
+  </div>
+
+  <header class="room-head">
+    <p class="eyebrow">Рука и глаз</p>
+    <h1>Зер<span class="out">кало</span></h1>
+    <p class="lead">В нейропсихологии это называют зеркальным рисованием. Глаза видят одно, рука делает другое, и мозг сходит с ума. Мне нравится, когда ты сходишь с ума. Но не слишком быстро.</p>
+  </header>
+
+  <section class="panel" id="locked" hidden>
+    <div class="tag"><span>Закрыто</span></div>
+    <p>Эта комната откроется после предыдущей.</p>
+    <div class="row"><a class="btn solid" href="index.html">На карту</a></div>
+  </section>
+
+  <section class="panel" id="game" data-n="02">
+    <div class="panel-head">
+      <div class="tag"><span>Задание</span><span>Без лимита времени</span></div>
+      <p class="desc">Проведи точку от старта до звезды, не касаясь стен. Тянешь палец <strong>вправо</strong>, точка едет <strong>влево</strong>. Вверх и вниз как обычно. Касание стены отправляет на старт. Мозг будет сопротивляться. Рука тоже. Держи палец на поле и веди медленно.</p>
+    </div>
+    <div class="hud">
+      <span>Касаний<b id="hits">0</b></span>
+      <span>Время<b id="tm">0,0</b></span>
+    </div>
+    <canvas id="mir" role="img" aria-label="Поле с извилистым коридором. Нужно провести точку от старта до звезды, управляя ею зеркально"></canvas>
+    <div class="row"><button class="btn" id="again" type="button">Начать заново</button></div>
+    <div class="result" id="res" hidden></div>
+  </section>
+
+  <div class="forfeit" id="forfeit" hidden>
+    <div class="tag"><span>Штраф вместо победы</span></div>
+    <p id="forfeit-t"></p>
+    <div class="row"><button class="btn" id="forfeit-b" type="button">Штраф выполнен</button></div>
+  </div>
+
+  <section class="panel inv after" id="after" hidden>
+    <div class="tag"><span>Комната пройдена</span></div>
+    <div class="big">Дошла.</div>
+    <p id="after-msg"></p>
+    <div class="row"><a class="btn solid" id="next" href="index.html">Дальше →</a><a class="btn" href="index.html">На карту</a></div>
+  </section>
+</div>
+
+<script>
+(function () {
+  var A = App, $ = A.$, I = 1, ID = 'l2';
+  if (!A.guard(I)) return;
+  var cv = $('#mir'), ctx = cv.getContext('2d');
+  var dpr = Math.min(window.devicePixelRatio || 1, 2);
+  var W = 0, H = 0, hw = 20, path = [], start = { x: 0, y: 0 }, fin = { x: 0, y: 0 };
+  var dot = { x: 0, y: 0 }, trail = [], hits = 0, t0 = 0, active = false, anchor = null, lock = 0, finished = false, tmr = 0;
+  var WP = [[0.12, 0.9], [0.12, 0.68], [0.5, 0.72], [0.82, 0.55], [0.62, 0.36], [0.2, 0.38], [0.18, 0.14], [0.55, 0.1], [0.88, 0.18]];
+
+  function catmull(p0, p1, p2, p3, t) {
+    var t2 = t * t, t3 = t2 * t;
+    return [
+      0.5 * ((2 * p1[0]) + (-p0[0] + p2[0]) * t + (2 * p0[0] - 5 * p1[0] + 4 * p2[0] - p3[0]) * t2 + (-p0[0] + 3 * p1[0] - 3 * p2[0] + p3[0]) * t3),
+      0.5 * ((2 * p1[1]) + (-p0[1] + p2[1]) * t + (2 * p0[1] - 5 * p1[1] + 4 * p2[1] - p3[1]) * t2 + (-p0[1] + 3 * p1[1] - 3 * p2[1] + p3[1]) * t3)
+    ];
+  }
+  function build() {
+    var r = cv.getBoundingClientRect();
+    if (!r.width) return;
+    W = r.width; H = r.height;
+    cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr);
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    hw = Math.max(19, W * 0.062);
+    path = [];
+    for (var i = 0; i < WP.length - 1; i++) {
+      var p0 = WP[Math.max(0, i - 1)], p1 = WP[i], p2 = WP[i + 1], p3 = WP[Math.min(WP.length - 1, i + 2)];
+      for (var s = 0; s < 26; s++) {
+        var q = catmull(p0, p1, p2, p3, s / 26);
+        path.push({ x: q[0] * W, y: q[1] * H });
+      }
+    }
+    path.push({ x: WP[WP.length - 1][0] * W, y: WP[WP.length - 1][1] * H });
+    start = path[0]; fin = path[path.length - 1];
+    reset(true);
+  }
+  function reset(full) {
+    dot = { x: start.x, y: start.y };
+    trail = [{ x: dot.x, y: dot.y }];
+    anchor = null;
+    if (full) { hits = 0; t0 = 0; finished = false; $('#hits').textContent = '0'; $('#tm').textContent = '0,0'; clearInterval(tmr); $('#res').hidden = true; }
+    draw();
+  }
+  function segDist(px, py, a, b) {
+    var dx = b.x - a.x, dy = b.y - a.y, l2 = dx * dx + dy * dy;
+    var t = l2 ? Math.max(0, Math.min(1, ((px - a.x) * dx + (py - a.y) * dy) / l2)) : 0;
+    var x = a.x + t * dx, y = a.y + t * dy;
+    return Math.hypot(px - x, py - y);
+  }
+  function nearest(px, py) {
+    var best = 1e9, bi = 0;
+    for (var i = 0; i < path.length - 1; i++) {
+      var d = segDist(px, py, path[i], path[i + 1]);
+      if (d < best) { best = d; bi = i; }
+    }
+    return { d: best, i: bi };
+  }
+  function cssv(n) { return getComputedStyle(document.documentElement).getPropertyValue(n).trim() || '#888'; }
+  function draw() {
+    if (!W) return;
+    var ink = cssv('--ink'), paper = cssv('--paper'), mid = cssv('--mid');
+    ctx.clearRect(0, 0, W, H);
+    ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+    function trace(list) { ctx.beginPath(); list.forEach(function (p, i) { if (i) ctx.lineTo(p.x, p.y); else ctx.moveTo(p.x, p.y); }); }
+    trace(path); ctx.strokeStyle = ink; ctx.lineWidth = hw * 2 + 6; ctx.stroke();
+    trace(path); ctx.strokeStyle = paper; ctx.lineWidth = hw * 2 - 2; ctx.stroke();
+    if (trail.length > 1) { trace(trail); ctx.strokeStyle = mid; ctx.lineWidth = 5; ctx.stroke(); }
+    ctx.fillStyle = ink; ctx.font = '600 12px "IBM Plex Mono", monospace'; ctx.textAlign = 'center';
+    ctx.fillText('СТАРТ', start.x, start.y + hw + 20);
+    ctx.font = '800 ' + Math.round(hw * 1.5) + 'px "Segoe UI Symbol", "Apple Symbols", system-ui, sans-serif';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('★', fin.x, fin.y);
+    ctx.textBaseline = 'alphabetic';
+    ctx.beginPath(); ctx.arc(dot.x, dot.y, 9, 0, 6.2832); ctx.fillStyle = ink; ctx.fill();
+    ctx.beginPath(); ctx.arc(dot.x, dot.y, 14, 0, 6.2832); ctx.strokeStyle = ink; ctx.lineWidth = 2; ctx.stroke();
+  }
+  function msgFor(h, t) {
+    if (h <= 2) return 'Почти без касаний за ' + A.fmt(t) + '. Либо ты гений, либо очень упрямая. Скорее второе, и мне это нравится.';
+    if (h <= 10) return 'Касаний: ' + h + ', время ' + A.fmt(t) + '. Со стенами ты познакомилась поближе. Бывает.';
+    return 'Касаний: ' + h + ', время ' + A.fmt(t) + '. Столько раз упереться в стену и не бросить. Я знаю этот характер, он мой любимый.';
+  }
+  function win() {
+    finished = true; active = false; clearInterval(tmr);
+    var t = (performance.now() - t0) / 1000;
+    $('#tm').textContent = t.toFixed(1).replace('.', ',');
+    A.finish(I, { time: Math.round(t * 10) / 10, hits: hits }, msgFor(hits, t));
+  }
+  function hit() {
+    hits++; $('#hits').textContent = hits;
+    cv.classList.remove('shake'); void cv.offsetWidth; cv.classList.add('shake');
+    if (navigator.vibrate) { try { navigator.vibrate(60); } catch (e) {} }
+    lock = performance.now() + 450;
+    A.bump(ID, 'fails');
+    dot = { x: start.x, y: start.y }; trail = [{ x: dot.x, y: dot.y }]; anchor = null;
+    if (hits >= 8) A.offerForfeit(I, 'Скажи мне вслух, что в тебе упрямее: рука или характер. Один честный ответ, без увиливаний. Запиши голосовое, если хватит смелости.');
+  }
+  cv.addEventListener('pointerdown', function (e) {
+    if (finished) return;
+    try { cv.setPointerCapture(e.pointerId); } catch (x) {}
+    active = true;
+    anchor = { px: e.clientX, py: e.clientY, dx: dot.x, dy: dot.y };
+    if (!t0) {
+      t0 = performance.now();
+      clearInterval(tmr);
+      tmr = setInterval(function () { $('#tm').textContent = ((performance.now() - t0) / 1000).toFixed(1).replace('.', ','); }, 100);
+    }
+  });
+  cv.addEventListener('pointermove', function (e) {
+    if (!active || finished) return;
+    if (performance.now() < lock) return;
+    if (!anchor) anchor = { px: e.clientX, py: e.clientY, dx: dot.x, dy: dot.y };
+    dot.x = anchor.dx - (e.clientX - anchor.px);
+    dot.y = anchor.dy + (e.clientY - anchor.py);
+    var n = nearest(dot.x, dot.y);
+    if (n.d > hw) { hit(); draw(); return; }
+    trail.push({ x: dot.x, y: dot.y });
+    if (trail.length > 400) trail.shift();
+    if (n.i > path.length - 14 && Math.hypot(dot.x - fin.x, dot.y - fin.y) < hw * 0.9) { draw(); win(); return; }
+    draw();
+  });
+  function up() { active = false; anchor = null; }
+  cv.addEventListener('pointerup', up);
+  cv.addEventListener('pointercancel', up);
+  cv.addEventListener('contextmenu', function (e) { e.preventDefault(); });
+  $('#again').addEventListener('click', function () { reset(true); });
+  document.addEventListener('themechange', draw);
+  if (typeof ResizeObserver !== 'undefined') new ResizeObserver(build).observe(cv);
+  build();
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(draw);
+})();
+</script>
+</body>
+</html>

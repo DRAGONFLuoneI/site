@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Комната 6. Правда или действие</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@600;800;900&family=Onest:wght@400;500;700&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+<script src="app.js"></script>
+</head>
+<body>
+<div class="wrap">
+  <div class="top">
+    <a class="back" href="index.html">← Карта</a>
+    <span class="mid">Комната 6 / 6</span>
+    <button class="theme" id="theme" type="button" aria-label="Сменить тему: чёрная или белая">◐</button>
+  </div>
+
+  <header class="room-head">
+    <p class="eyebrow">Честность</p>
+    <h1>Правда<br><span class="out">или дей&shy;ствие</span></h1>
+    <p class="lead">Последняя комната без таймера и без баллов. Здесь проверяется не голова, а смелость. Таблицы кончились, начались живые люди. Один из них прямо сейчас смотрит на твой экран, пусть и мысленно.</p>
+  </header>
+
+  <section class="panel" id="locked" hidden>
+    <div class="tag"><span>Закрыто</span></div>
+    <p>Эта комната откроется после предыдущей.</p>
+    <div class="row"><a class="btn solid" href="index.html">На карту</a></div>
+  </section>
+
+  <section class="panel" id="game" data-n="06">
+    <div class="panel-head">
+      <div class="tag"><span>Задание</span><span id="prog">Выполнено 0 из 3</span></div>
+      <p class="desc">Перед тобой шесть карточек. Переверни любую и сделай то, что там написано. Нужно выполнить <strong>три</strong>. Сделала, нажми «Сделано». Честность проверять некому, поэтому всё держится на тебе. И на моей вере в тебя.</p>
+    </div>
+    <div class="cards" id="cards"></div>
+  </section>
+
+  <section class="panel inv after" id="after" hidden>
+    <div class="tag"><span>Комната пройдена</span></div>
+    <div class="big">Смелая.</div>
+    <p id="after-msg"></p>
+    <div class="row"><a class="btn solid" id="next" href="index.html">К вердикту →</a><a class="btn" href="index.html">На карту</a></div>
+  </section>
+</div>
+
+<script>
+(function () {
+  var A = App, $ = A.$, I = 5, ID = 'l6', NEED = 3;
+  if (!A.guard(I)) return;
+  var CARDS = [
+    { k: 'Правда', t: 'Напиши мне три слова о том, что ты чувствуешь, когда я смотрю на тебя слишком долго.' },
+    { k: 'Действие', t: 'Отправь мне голосовое. Скажи моё имя так, как ты говоришь, когда хочешь чего-то получить.' },
+    { k: 'Действие', t: 'Сделай фото самого подозрительного взгляда, на какой способна. Таким, будто знаешь, о чём я думаю. Присылать необязательно, но я буду знать.' },
+    { k: 'Правда', t: 'Назови одну мою привычку, которая тебя бесит, и одну, из-за которой ты ей это прощаешь.' },
+    { k: 'Действие', t: 'Придумай мне прозвище. Такое, чтобы я улыбнулся и слегка покраснел.' },
+    { k: 'Правда', t: 'Вспомни момент, когда ты подумала обо мне что-то неприличное среди людей. Расскажи хотя бы часть. Остальное можно при встрече.' }
+  ];
+  var st = A.stat(ID), doneSet = {};
+  (st.cards || []).forEach(function (n) { doneSet[n] = true; });
+  var box = $('#cards');
+  function count() { var n = 0; for (var k in doneSet) if (doneSet[k]) n++; return n; }
+  function persist() { var arr = []; for (var k in doneSet) if (doneSet[k]) arr.push(+k); A.set(ID, { cards: arr }); }
+  function paint() {
+    box.innerHTML = '';
+    CARDS.forEach(function (c, i) {
+      var el = document.createElement('div');
+      el.className = 'cardx';
+      el.setAttribute('role', 'button'); el.tabIndex = 0;
+      var open = el.getAttribute('data-open') === '1';
+      function render() {
+        el.innerHTML = '';
+        var isDone = !!doneSet[i];
+        el.classList.toggle('fin', isDone);
+        if (!open && !isDone) {
+          el.classList.remove('open');
+          var a = document.createElement('span'); a.className = 'num'; a.textContent = i + 1;
+          var b = document.createElement('span'); b.className = 'kind'; b.textContent = 'Перевернуть';
+          el.appendChild(a); el.appendChild(b);
+          return;
+        }
+        el.classList.add('open');
+        var k = document.createElement('span'); k.className = 'kind'; k.textContent = c.k;
+        var t = document.createElement('p'); t.className = 'txt'; t.textContent = c.t;
+        el.appendChild(k); el.appendChild(t);
+        if (isDone) {
+          var m = document.createElement('span'); m.className = 'mk'; m.textContent = '✓ Сделано';
+          el.appendChild(m);
+        } else {
+          var btn = document.createElement('button');
+          btn.type = 'button'; btn.className = 'btn solid'; btn.textContent = 'Сделано';
+          btn.addEventListener('click', function (e) {
+            e.stopPropagation();
+            doneSet[i] = true; persist(); render(); update();
+          });
+          el.appendChild(btn);
+        }
+      }
+      function flip() { if (!open && !doneSet[i]) { open = true; render(); } }
+      el.addEventListener('click', flip);
+      el.addEventListener('keydown', function (e) { if ((e.key === 'Enter' || e.key === ' ') && e.target === el) { e.preventDefault(); flip(); } });
+      render();
+      box.appendChild(el);
+    });
+  }
+  function update() {
+    var n = count();
+    $('#prog').textContent = 'Выполнено ' + n + ' из ' + NEED;
+    if (n >= NEED && !A.done(ID)) {
+      A.finish(I, { cards: Object.keys(doneSet).map(Number) },
+        'Три карточки позади. Ты смелее, чем делала вид. Остальные три оставим на потом. Я никуда не тороплюсь.');
+    } else if (n >= NEED) {
+      $('#after-msg').textContent = 'Комната уже пройдена. Остальные карточки можно открыть по желанию.';
+      $('#after').hidden = false;
+    }
+  }
+  paint(); update();
+})();
+</script>
+</body>
+</html>

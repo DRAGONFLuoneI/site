@@ -1,0 +1,133 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Комната 4. Память</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@600;800;900&family=Onest:wght@400;500;700&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+<script src="app.js"></script>
+</head>
+<body>
+<div class="wrap">
+  <div class="top">
+    <a class="back" href="index.html">← Карта</a>
+    <span class="mid">Комната 4 / 6</span>
+    <button class="theme" id="theme" type="button" aria-label="Сменить тему: чёрная или белая">◐</button>
+  </div>
+
+  <header class="room-head">
+    <p class="eyebrow">Запоминание</p>
+    <h1>Па<span class="out">мять</span></h1>
+    <p class="lead">Говорят, у женщин память лучше. Проверим. Я, например, помню каждую мелочь о тебе. Теперь твоя очередь помнить мелочи обо мне. Для начала хотя бы девять клеток.</p>
+  </header>
+
+  <section class="panel" id="locked" hidden>
+    <div class="tag"><span>Закрыто</span></div>
+    <p>Эта комната откроется после предыдущей.</p>
+    <div class="row"><a class="btn solid" href="index.html">На карту</a></div>
+  </section>
+
+  <section class="panel" id="game" data-n="04">
+    <div class="panel-head">
+      <div class="tag"><span>Задание</span><span>Цель: 8 раундов подряд</span></div>
+      <p class="desc">Клетки вспыхивают по очереди. Повтори цепочку. Каждый раунд она длиннее на одну клетку. <strong>Любая ошибка сбрасывает всё</strong> и задаёт новую цепочку. Смотри, а не считай: считать будут мешать.</p>
+    </div>
+    <div class="row">
+      <button class="btn solid" id="go" type="button">Старт</button>
+      <button class="btn" id="snd" type="button">Звук: вкл</button>
+    </div>
+    <div class="hud"><span>Раунд<b id="rd">0</b></span><span>Ошибок<b id="fl">0</b></span><span id="state" aria-live="polite"></span></div>
+    <div class="simon" id="simon"></div>
+    <div class="result" id="res" hidden></div>
+  </section>
+
+  <div class="forfeit" id="forfeit" hidden>
+    <div class="tag"><span>Штраф вместо победы</span></div>
+    <p id="forfeit-t"></p>
+    <div class="row"><button class="btn" id="forfeit-b" type="button">Штраф выполнен</button></div>
+  </div>
+
+  <section class="panel inv after" id="after" hidden>
+    <div class="tag"><span>Комната пройдена</span></div>
+    <div class="big">Запомнила.</div>
+    <p id="after-msg"></p>
+    <div class="row"><a class="btn solid" id="next" href="index.html">Дальше →</a><a class="btn" href="index.html">На карту</a></div>
+  </section>
+</div>
+
+<script>
+(function () {
+  var A = App, $ = A.$, I = 3, ID = 'l4', GOAL = 8;
+  if (!A.guard(I)) return;
+  var box = $('#simon'), pads = [], seq = [], pos = 0, round = 0, fails = 0, accepting = false, busy = false, sound = true, ac = null;
+  for (var i = 0; i < 9; i++) {
+    var b = document.createElement('button');
+    b.type = 'button'; b.className = 'pad9'; b.disabled = true; b.setAttribute('aria-label', 'Клетка ' + (i + 1));
+    (function (n) { b.addEventListener('click', function () { press(n); }); })(i);
+    box.appendChild(b); pads.push(b);
+  }
+  function beep(n) {
+    if (!sound) return;
+    try {
+      if (!ac) ac = new (window.AudioContext || window.webkitAudioContext)();
+      var o = ac.createOscillator(), g = ac.createGain();
+      o.type = 'sine'; o.frequency.value = 220 * Math.pow(2, n / 9 * 1.2);
+      g.gain.value = 0.0001; o.connect(g); g.connect(ac.destination);
+      var t = ac.currentTime;
+      g.gain.exponentialRampToValueAtTime(0.08, t + 0.02);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + 0.28);
+      o.start(t); o.stop(t + 0.3);
+    } catch (e) {}
+  }
+  function flash(n, ms) {
+    pads[n].classList.add('lit'); beep(n);
+    return new Promise(function (res) { setTimeout(function () { pads[n].classList.remove('lit'); res(); }, ms); });
+  }
+  function wait(ms) { return new Promise(function (r) { setTimeout(r, ms); }); }
+  function setEnabled(v) { pads.forEach(function (p) { p.disabled = !v; }); }
+  function say(t) { $('#state').textContent = t; }
+  async function play() {
+    busy = true; accepting = false; setEnabled(false); say('Смотри');
+    await wait(500);
+    var on = round >= 6 ? 260 : (round >= 4 ? 320 : 400), gap = round >= 6 ? 90 : 140;
+    for (var i = 0; i < seq.length; i++) { await flash(seq[i], on); await wait(gap); }
+    pos = 0; accepting = true; busy = false; setEnabled(true); say('Твоя очередь');
+  }
+  function next() {
+    var n;
+    do { n = Math.floor(Math.random() * 9); } while (seq.length && n === seq[seq.length - 1]);
+    seq.push(n); round = seq.length; $('#rd').textContent = round;
+    play();
+  }
+  function press(n) {
+    if (!accepting) return;
+    flash(n, 140);
+    if (n !== seq[pos]) {
+      accepting = false; setEnabled(false); fails++; A.bump(ID, 'fails'); $('#fl').textContent = fails;
+      var r = $('#res'); r.innerHTML = '<b></b><p></p>';
+      r.firstChild.textContent = 'Мимо на раунде ' + round;
+      r.lastChild.textContent = 'Цепочка сбросилась. Это не конец, это повод попробовать ещё раз. Я подожду.';
+      r.hidden = false; say('Сброс');
+      $('#go').textContent = 'Ещё раз'; $('#go').hidden = false;
+      if (fails >= 5) A.offerForfeit(I, 'Напиши мне три вещи, которые ты помнишь обо мне лучше всего остального. Первое, что придёт в голову. Без редактуры.');
+      return;
+    }
+    pos++;
+    if (pos === seq.length) {
+      accepting = false; setEnabled(false);
+      if (round >= GOAL) { say('Готово'); A.finish(I, { fails: fails }, 'Восемь раундов подряд. Память у тебя отличная. Надеюсь, ты запоминаешь не только клетки.'); return; }
+      say('Верно'); setTimeout(next, 700);
+    }
+  }
+  $('#go').addEventListener('click', function () {
+    try { if (!ac) ac = new (window.AudioContext || window.webkitAudioContext)(); if (ac.state === 'suspended') ac.resume(); } catch (e) {}
+    $('#res').hidden = true; seq = []; round = 0; $('#go').hidden = true; next();
+  });
+  $('#snd').addEventListener('click', function () { sound = !sound; $('#snd').textContent = 'Звук: ' + (sound ? 'вкл' : 'выкл'); });
+})();
+</script>
+</body>
+</html>

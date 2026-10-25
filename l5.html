@@ -1,0 +1,154 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Комната 5. Допрос</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@600;800;900&family=Onest:wght@400;500;700&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+<script src="app.js"></script>
+</head>
+<body>
+<div class="wrap">
+  <div class="top">
+    <a class="back" href="index.html">← Карта</a>
+    <span class="mid">Комната 5 / 6</span>
+    <button class="theme" id="theme" type="button" aria-label="Сменить тему: чёрная или белая">◐</button>
+  </div>
+
+  <header class="room-head">
+    <p class="eyebrow">Логика</p>
+    <h1>До<span class="out">прос</span></h1>
+    <p class="lead">Тут нужна голова, и холодная. Один вор, четыре подозреваемых и три загадки. Допрашивай беспристрастно. Если получится, конечно, пока я смотрю на тебя вот так.</p>
+  </header>
+
+  <section class="panel" id="locked" hidden>
+    <div class="tag"><span>Закрыто</span></div>
+    <p>Эта комната откроется после предыдущей.</p>
+    <div class="row"><a class="btn solid" href="index.html">На карту</a></div>
+  </section>
+
+  <section class="panel" id="game" data-n="05">
+    <div class="panel-head">
+      <div class="tag"><span>Дело о краже поцелуя</span><span id="prog">0 из 4</span></div>
+      <p class="desc">Кто-то украл поцелуй. Подозреваемых четверо. Ровно <strong>двое из них лгут</strong>, двое говорят правду. Прочти показания и найди вора.</p>
+    </div>
+    <div class="stmts">
+      <div class="stmt"><b>Анна</b><span>«Это сделал Борис или Вика.»</span></div>
+      <div class="stmt"><b>Борис</b><span>«Это сделал не я и не Вика.»</span></div>
+      <div class="stmt"><b>Вика</b><span>«Это сделал Глеб.»</span></div>
+      <div class="stmt"><b>Глеб</b><span>«Анна лжёт.»</span></div>
+    </div>
+    <div class="suspects" id="susp">
+      <button class="btn" data-v="anna" type="button">Анна</button>
+      <button class="btn" data-v="boris" type="button">Борис</button>
+      <button class="btn" data-v="vika" type="button">Вика</button>
+      <button class="btn" data-v="gleb" type="button">Глеб</button>
+    </div>
+    <div class="result" id="sres" hidden></div>
+
+    <div class="riddle" id="r1" data-a="имя,имена,моеимя,твоеимя">
+      <q>Загадка 1. Что принадлежит тебе, но другие пользуются им чаще, чем ты?</q>
+      <div class="row"><input id="i1" type="text" placeholder="Ответ" autocomplete="off"><button class="btn" data-check="r1" type="button">Проверить</button><button class="btn" data-hint="r1" type="button">Подсказка</button></div>
+      <p class="st" id="s1" aria-live="polite"></p>
+    </div>
+    <div class="riddle" id="r2" data-a="яма,яму,ямка,ямку,дыра,дыру,ямы">
+      <q>Загадка 2. Чем больше из меня берут, тем больше я становлюсь. Что я?</q>
+      <div class="row"><input id="i2" type="text" placeholder="Ответ" autocomplete="off"><button class="btn" data-check="r2" type="button">Проверить</button><button class="btn" data-hint="r2" type="button">Подсказка</button></div>
+      <p class="st" id="s2" aria-live="polite"></p>
+    </div>
+    <div class="riddle" id="r3" data-a="полотенце,полотенца,полотенцу,полотенцем">
+      <q>Загадка 3. Что становится мокрым, пока сушит?</q>
+      <div class="row"><input id="i3" type="text" placeholder="Ответ" autocomplete="off"><button class="btn" data-check="r3" type="button">Проверить</button><button class="btn" data-hint="r3" type="button">Подсказка</button></div>
+      <p class="st" id="s3" aria-live="polite"></p>
+    </div>
+  </section>
+
+  <div class="forfeit" id="forfeit" hidden>
+    <div class="tag"><span>Штраф вместо победы</span></div>
+    <p id="forfeit-t"></p>
+    <div class="row"><button class="btn" id="forfeit-b" type="button">Штраф выполнен</button></div>
+  </div>
+
+  <section class="panel inv after" id="after" hidden>
+    <div class="tag"><span>Комната пройдена</span></div>
+    <div class="big">Дело закрыто.</div>
+    <p id="after-msg"></p>
+    <div class="row"><a class="btn solid" id="next" href="index.html">Дальше →</a><a class="btn" href="index.html">На карту</a></div>
+  </section>
+</div>
+
+<script>
+(function () {
+  var A = App, $ = A.$, $$ = A.$$, I = 4, ID = 'l5';
+  if (!A.guard(I)) return;
+  var solved = { thief: false, r1: false, r2: false, r3: false };
+  var wrong = 0, hints = 0;
+  var HINTS = { r1: 'Тебя им зовут.', r2: 'Её копают.', r3: 'Висит в ванной.' };
+  var OKMSG = {
+    r1: 'Имя. Моё любимое слово после слова «согласна».',
+    r2: 'Яма. Да, я знал, что ты не обидишься.',
+    r3: 'Полотенце. Любимый предмет в ванной, не считая тебя.'
+  };
+  function progress() {
+    var n = 0; for (var k in solved) if (solved[k]) n++;
+    $('#prog').textContent = n + ' из 4';
+    if (n === 4) {
+      A.finish(I, { wrong: wrong, hints: hints },
+        'Вор найден, три загадки решены. Неверных ответов: ' + wrong + ', подсказок: ' + hints + '. Холодная голова у тебя есть. Я бы хотел её слегка разогреть.');
+    } else if (wrong >= 8) {
+      A.offerForfeit(I, 'Признайся вслух в одной своей маленькой преступной слабости. Не вора, а своей. Я сделаю вид, что не удивлён.');
+    }
+  }
+  $$('#susp .btn').forEach(function (b) {
+    b.addEventListener('click', function () {
+      if (solved.thief) return;
+      var r = $('#sres'); r.innerHTML = '<b></b><p></p>';
+      if (b.getAttribute('data-v') === 'anna') {
+        solved.thief = true;
+        $$('#susp .btn').forEach(function (x) { x.disabled = true; });
+        b.classList.add('picked');
+        r.firstChild.textContent = 'Анна';
+        r.lastChild.textContent = 'Да. Если вор Анна, лгут она и Вика, а Борис и Глеб говорят правду. Ровно двое. Красть поцелуи её профиль.';
+      } else {
+        wrong++; A.bump(ID, 'fails');
+        r.firstChild.textContent = 'Нет';
+        r.lastChild.textContent = 'С этим вором число лжецов не равно двум. Проверь каждого подозреваемого и посчитай, кто врёт. Делай это спокойно.';
+      }
+      r.hidden = false; progress();
+    });
+  });
+  $$('[data-hint]').forEach(function (b) {
+    b.addEventListener('click', function () {
+      var id = b.getAttribute('data-hint');
+      if (solved[id]) return;
+      var n = id.charAt(1);
+      $('#s' + n).textContent = 'Подсказка: ' + HINTS[id];
+      if (!b.getAttribute('data-used')) { b.setAttribute('data-used', '1'); hints++; }
+    });
+  });
+  function check(id) {
+    if (solved[id]) return;
+    var n = id.charAt(1), box = $('#' + id), val = A.norm($('#i' + n).value);
+    if (!val) { $('#s' + n).textContent = 'Напиши ответ.'; return; }
+    var ok = box.getAttribute('data-a').split(',').indexOf(val) >= 0;
+    if (ok) {
+      solved[id] = true; box.classList.add('ok');
+      $('#i' + n).disabled = true;
+      $('#s' + n).textContent = '✓ ' + OKMSG[id];
+    } else {
+      wrong++; A.bump(ID, 'fails');
+      $('#s' + n).textContent = 'Нет. Подумай ещё. Можно взять подсказку, я не осуждаю.';
+    }
+    progress();
+  }
+  $$('[data-check]').forEach(function (b) { b.addEventListener('click', function () { check(b.getAttribute('data-check')); }); });
+  ['1', '2', '3'].forEach(function (n) {
+    $('#i' + n).addEventListener('keydown', function (e) { if (e.key === 'Enter') check('r' + n); });
+  });
+})();
+</script>
+</body>
+</html>

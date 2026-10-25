@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Вердикт</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@600;800;900&family=Onest:wght@400;500;700&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+<script src="app.js"></script>
+</head>
+<body>
+<div class="wrap">
+  <div class="top">
+    <a class="back" href="index.html">← Карта</a>
+    <span class="mid">Финал</span>
+    <button class="theme" id="theme" type="button" aria-label="Сменить тему: чёрная или белая">◐</button>
+  </div>
+
+  <section class="panel" id="locked" hidden>
+    <div class="tag"><span>Закрыто</span></div>
+    <p id="lockmsg"></p>
+    <div class="row"><a class="btn solid" id="lockgo" href="index.html">На карту</a></div>
+  </section>
+
+  <section class="verdict" id="game">
+    <div class="tag"><span>Финал</span><span>Открыто</span></div>
+    <h1>Вердикт</h1>
+    <div class="vgrid" style="grid-template-columns:minmax(0,1fr)">
+      <div class="msg" id="vmsg"></div>
+    </div>
+    <div class="row"><a class="btn" href="index.html">На карту</a></div>
+  </section>
+</div>
+
+<script>
+(function () {
+  var A = App, $ = A.$;
+  if (!(A.allDone() || A.cheat())) {
+    $('#game').hidden = true;
+    $('#locked').hidden = false;
+    var left = A.LV.filter(function (l) { return !A.done(l.id); });
+    $('#lockmsg').textContent = 'Вердикт откроется, когда будут пройдены все шесть комнат. Осталось: ' + left.length + '. Следующая: «' + left[0].name + '».';
+    $('#lockgo').href = left[0].href;
+    $('#lockgo').textContent = 'В комнату «' + left[0].name + '»';
+    return;
+  }
+  var name = A.name();
+  var who = name ? name + ', ' : '';
+  var m = $('#vmsg');
+  function add(cls, text) { var e = document.createElement('p'); if (cls) e.className = cls; e.textContent = text; m.appendChild(e); }
+  function s(id) { return A.stat(id); }
+  function sec(x) { return String(x).replace('.', ','); }
+
+  var lines = [];
+  var l1 = s('l1'), l2 = s('l2'), l3 = s('l3'), l4 = s('l4'), l5 = s('l5'), l6 = s('l6');
+  var forfeits = A.LV.filter(function (l) { return s(l.id).forfeit; }).length;
+  lines.push('Чёрное и белое: ' + (l1.forfeit ? 'штраф' : sec(l1.time) + ' с, ошибок ' + (l1.errors || 0)));
+  lines.push('Зеркало: ' + (l2.forfeit ? 'штраф' : sec(l2.time) + ' с, касаний ' + (l2.hits || 0)));
+  lines.push('Нервы: ' + (l3.forfeit ? 'штраф' : 'сорвалась ' + ((l3.holdFails || 0) + (l3.timeFails || 0)) + ' раз'));
+  lines.push('Память: ' + (l4.forfeit ? 'штраф' : 'ошибок ' + (l4.fails || 0)));
+  lines.push('Допрос: ' + (l5.forfeit ? 'штраф' : 'неверных ответов ' + (l5.wrong || 0)));
+  lines.push('Правда или действие: ' + (l6.cards ? l6.cards.length : 3) + ' карточки');
+  lines.push('Штрафов: ' + forfeits);
+
+  add('sum', lines.join('\n'));
+  add('', who + 'ты прошла все шесть комнат. Сдалась ты или нет, ты вернулась и нажала снова. Такая ты мне и нравишься.');
+  if (forfeits === 0) {
+    add('', 'Без единого штрафа. Я заранее знал, что у тебя получится, и всё равно нервничал. Это новое ощущение, спасибо.');
+  } else {
+    add('', 'Штрафов было ' + forfeits + '. Я их помню все и когда-нибудь оформлю в нормальном формате. Лично.');
+  }
+  add('', 'Самая сложная комната здесь всё равно ты. Решать её до конца я не собираюсь. Мне больше нравится открывать её по кусочкам. Медленно. Без спешки.');
+  add('sig', 'Целую. Куда именно, выберешь сама.');
+
+})();
+</script>
+</body>
+</html>

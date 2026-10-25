@@ -1,0 +1,178 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Комната 3. Нервы</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@600;800;900&family=Onest:wght@400;500;700&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+<script src="app.js"></script>
+</head>
+<body>
+<div class="wrap">
+  <div class="top">
+    <a class="back" href="index.html">← Карта</a>
+    <span class="mid">Комната 3 / 6</span>
+    <button class="theme" id="theme" type="button" aria-label="Сменить тему: чёрная или белая">◐</button>
+  </div>
+
+  <header class="room-head">
+    <p class="eyebrow">Терпение</p>
+    <h1>Нер<span class="out">вы</span></h1>
+    <p class="lead">Здесь не нужна голова. Нужны пальцы, выдержка и умение не поддаваться на провокации. Последнее у тебя, подозреваю, получается хуже всего.</p>
+  </header>
+
+  <section class="panel" id="locked" hidden>
+    <div class="tag"><span>Закрыто</span></div>
+    <p>Эта комната откроется после предыдущей.</p>
+    <div class="row"><a class="btn solid" href="index.html">На карту</a></div>
+  </section>
+
+  <section class="panel" id="game" data-n="03">
+    <div class="panel-head">
+      <div class="tag"><span>Две проверки</span><span id="prog">0 из 2</span></div>
+      <p class="desc">Пройди обе. Первая про терпение, вторая про чувство времени. Порядок любой.</p>
+    </div>
+
+    <div class="test" id="t-hold">
+      <h3>1. Не отпускай</h3>
+      <p class="desc">Прижми круг и держи <strong>20 секунд</strong>, не отрывая палец. Я буду пытаться тебя отвлечь. Отпустишь раньше, начнёшь сначала.</p>
+      <div class="hold-wrap">
+        <div class="hold" id="hold" role="button" tabindex="0" aria-label="Круг. Удерживай 20 секунд"><div class="hold-in" id="hold-in">Держи</div></div>
+        <p class="hold-msg" id="hold-msg" aria-live="polite">Прижми круг и не отпускай.</p>
+      </div>
+    </div>
+
+    <div class="test" id="t-time">
+      <h3>2. Почувствуй десять секунд</h3>
+      <p class="desc">Нажми «Старт». Две секунды ты увидишь время, потом оно скроется. Нажми «Стоп» ровно на <strong>10,00</strong>. Допустимая ошибка: 0,3 секунды. Считать вслух можно. Смотреть на часы нельзя.</p>
+      <div class="clock" id="clock">0,00</div>
+      <div class="row"><button class="btn solid" id="tbtn" type="button">Старт</button></div>
+      <div class="result" id="tres" hidden></div>
+    </div>
+  </section>
+
+  <div class="forfeit" id="forfeit" hidden>
+    <div class="tag"><span>Штраф вместо победы</span></div>
+    <p id="forfeit-t"></p>
+    <div class="row"><button class="btn" id="forfeit-b" type="button">Штраф выполнен</button></div>
+  </div>
+
+  <section class="panel inv after" id="after" hidden>
+    <div class="tag"><span>Комната пройдена</span></div>
+    <div class="big">Выдержала.</div>
+    <p id="after-msg"></p>
+    <div class="row"><a class="btn solid" id="next" href="index.html">Дальше →</a><a class="btn" href="index.html">На карту</a></div>
+  </section>
+</div>
+
+<script>
+(function () {
+  var A = App, $ = A.$, I = 2, ID = 'l3';
+  if (!A.guard(I)) return;
+  var passed = { hold: false, time: false };
+  var holdFails = 0, timeFails = 0, bestDiff = 99;
+  function check() {
+    var n = (passed.hold ? 1 : 0) + (passed.time ? 1 : 0);
+    $('#prog').textContent = n + ' из 2';
+    if (n === 2) {
+      A.finish(I, { holdFails: holdFails, timeFails: timeFails, bestDiff: Math.round(bestDiff * 100) / 100 },
+        'Палец удержала, время почувствовала. Нервы у тебя крепкие. Это надо будет проверить ещё кое-где, но позже.');
+    } else if (holdFails + timeFails >= 6) {
+      A.offerForfeit(I, 'Расскажи мне любую свою привычку, о которой не знает никто, кроме тебя. Одну. Честно. Остальное я выпытаю потом.');
+    }
+  }
+
+  /* ---- 1. удержание ---- */
+  var HOLD = 20000;
+  var holdEl = $('#hold'), holdIn = $('#hold-in'), hmsg = $('#hold-msg');
+  var holding = false, hs = 0, raf = 0;
+  var lines = [
+    [0, 'Держи. Не отпускай.'],
+    [3000, 'Пока легко. Дальше хуже.'],
+    [6000, 'Пальцу уже скучно?'],
+    [9000, 'Знаешь, что я люблю делать подольше и без спешки? Вот именно. Не отпускай.'],
+    [12000, 'Ты уже хочешь отпустить. Видно по лицу.'],
+    [15000, 'Ещё немного. Я и не такое могу ждать.'],
+    [18000, 'Почти. Не сейчас. Не сейчас. Вот теперь можно.']
+  ];
+  function setP(p) { holdEl.style.setProperty('--p', p.toFixed(2)); }
+  function loop() {
+    if (!holding) return;
+    var el = performance.now() - hs;
+    setP(Math.min(100, el / HOLD * 100));
+    var s = lines[0][1];
+    for (var i = 0; i < lines.length; i++) if (el >= lines[i][0]) s = lines[i][1];
+    if (hmsg.textContent !== s) hmsg.textContent = s;
+    holdIn.textContent = Math.max(0, Math.ceil((HOLD - el) / 1000));
+    if (el >= HOLD) {
+      holding = false; passed.hold = true;
+      holdEl.classList.remove('on'); setP(100); holdIn.textContent = 'Есть';
+      hmsg.textContent = 'Двадцать секунд. Ты не отпустила. Запомню.';
+      check();
+      return;
+    }
+    raf = requestAnimationFrame(loop);
+  }
+  function begin() {
+    if (passed.hold || holding) return;
+    holding = true; hs = performance.now(); holdEl.classList.add('on'); loop();
+  }
+  function end() {
+    if (!holding) return;
+    holding = false; cancelAnimationFrame(raf); holdEl.classList.remove('on');
+    var s = (performance.now() - hs) / 1000;
+    holdFails++; A.bump(ID, 'fails');
+    setP(0); holdIn.textContent = 'Ещё раз';
+    hmsg.textContent = 'Отпустила на ' + s.toFixed(1).replace('.', ',') + ' с. Слабость, а не провал. Давай заново.';
+    check();
+  }
+  holdEl.addEventListener('pointerdown', function (e) { try { holdEl.setPointerCapture(e.pointerId); } catch (x) {} begin(); });
+  holdEl.addEventListener('pointerup', end);
+  holdEl.addEventListener('pointercancel', end);
+  holdEl.addEventListener('lostpointercapture', end);
+  holdEl.addEventListener('contextmenu', function (e) { e.preventDefault(); });
+  holdEl.addEventListener('keydown', function (e) { if ((e.key === ' ' || e.key === 'Enter') && !e.repeat) { e.preventDefault(); begin(); } });
+  holdEl.addEventListener('keyup', function (e) { if (e.key === ' ' || e.key === 'Enter') end(); });
+
+  /* ---- 2. десять секунд ---- */
+  var running = false, t0 = 0, tm = 0;
+  var clock = $('#clock'), tbtn = $('#tbtn'), tres = $('#tres');
+  function show(s) { clock.textContent = s.toFixed(2).replace('.', ','); }
+  tbtn.addEventListener('click', function () {
+    if (passed.time) return;
+    if (!running) {
+      running = true; t0 = performance.now(); tres.hidden = true; tbtn.textContent = 'Стоп';
+      clearInterval(tm);
+      tm = setInterval(function () {
+        var t = (performance.now() - t0) / 1000;
+        if (t < 2) show(t); else clock.textContent = '•  •  •';
+      }, 40);
+    } else {
+      running = false; clearInterval(tm);
+      var d = (performance.now() - t0) / 1000;
+      show(d);
+      var diff = Math.abs(d - 10);
+      bestDiff = Math.min(bestDiff, diff);
+      var ok = diff <= 0.3;
+      tres.innerHTML = '<b></b><p></p>';
+      if (ok) {
+        passed.time = true; tbtn.hidden = true;
+        tres.firstChild.textContent = 'В точку';
+        tres.lastChild.textContent = 'Ошибка ' + diff.toFixed(2).replace('.', ',') + ' с. Чувство времени у тебя есть. Значит, ты знаешь, когда пора перестать делать вид, что тебе всё равно.';
+      } else {
+        timeFails++; A.bump(ID, 'fails');
+        tbtn.textContent = 'Ещё раз';
+        tres.firstChild.textContent = d < 10 ? 'Поторопилась' : 'Затянула';
+        tres.lastChild.textContent = 'Ты остановилась на ' + d.toFixed(2).replace('.', ',') + ' с, ошибка ' + diff.toFixed(2).replace('.', ',') + ' с. ' + (d < 10 ? 'Нетерпение, как всегда.' : 'Любишь растягивать удовольствие, я заметил.');
+      }
+      tres.hidden = false;
+      check();
+    }
+  });
+})();
+</script>
+</body>
+</html>
